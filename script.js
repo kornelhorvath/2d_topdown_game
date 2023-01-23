@@ -3,9 +3,13 @@ window.addEventListener("load", function () {
   const ctx = canvas.getContext("2d");
   canvas.width = window.innerWidth * 0.75;
   canvas.height = window.innerHeight * 0.75;
+  let mouseX = 0;
+  let mouseY = 0;
+  let topPos = canvas.getBoundingClientRect().top + window.scrollY;
+  let leftPos = canvas.getBoundingClientRect().left + window.scrollX;
 
   class InputHandler {
-    constructor(game) {
+    constructor(game, context) {
       this.game = game;
       window.addEventListener("keydown", (e) => {
         if (
@@ -23,27 +27,47 @@ window.addEventListener("load", function () {
           this.game.keys.splice(this.game.keys.indexOf(e.key), 1);
         }
       });
+      window.addEventListener("mousemove", (e) => {
+        mouseX = e.clientX - leftPos;
+        mouseY = e.clientY - topPos;
+      });
     }
   }
 
   class Projectile {
-    constructor(game, x, y) {
+    constructor(game, x, y, angle) {
       this.game = game;
-      this.x = x;
-      this.y = y;
-      this.width = 10;
-      this.height = 3;
+      this.width = 20;
+      this.height = 10;
+      this.x = x - this.width / 2;
+      this.y = y - this.height / 2;
       this.speed = 3;
+      this.angle = angle;
       this.markedForDeletion = false;
     }
     update() {
-      this.x += this.speed;
-      if (this.x > this.game.width * 0.8) this.markedForDeletion = true;
+      this.x += this.speed * Math.cos(this.angle);
+      this.y += this.speed * Math.sin(this.angle);
+      if (
+        this.x > this.game.width ||
+        this.x < 0 ||
+        this.y > this.game.height ||
+        this.y < 0
+      ) {
+        this.markedForDeletion = true;
+      }
     }
     draw(context) {
       context.save();
       context.fillStyle = "#006600";
-      context.fillRect(this.x, this.y, this.width, this.height);
+      context.translate(this.x + this.width / 2, this.y + this.height / 2);
+      context.rotate(this.angle);
+      context.fillRect(
+        -this.width / 2,
+        -this.height / 2,
+        this.width,
+        this.height
+      );
       context.restore();
     }
   }
@@ -57,7 +81,7 @@ window.addEventListener("load", function () {
       this.y = canvas.height / 2;
       this.speedY = 0;
       this.speedX = 0;
-      this.speedIncrement = 0.1;
+      this.speedIncrement = 0.25;
       this.minSpeed = -5;
       this.maxSpeed = 5;
       this.projectiles = [];
@@ -118,20 +142,35 @@ window.addEventListener("load", function () {
       );
     }
     draw(context) {
+      this.drawPlayerModel(context);
+      this.projectiles.forEach((projectile) => {
+        projectile.draw(context);
+      });
+      this.drawLineBetweenPlayerAndMouse(context);
+    }
+    drawPlayerModel(context) {
       context.save();
-      //context.fillRect(this.x, this.y, this.width, this.height); //rectangle player
       context.fillStyle = "black";
       context.beginPath();
       context.arc(this.x, this.y, this.width, 0, 2 * Math.PI, false);
       context.closePath();
       context.fill();
       context.restore();
-      this.projectiles.forEach((projectile) => {
-        projectile.draw(context);
-      });
     }
     shoot() {
-      this.projectiles.push(new Projectile(this.game, this.x, this.y));
+      const angle = Math.atan2(mouseY - this.y, mouseX - this.x);
+      this.projectiles.push(new Projectile(this.game, this.x, this.y, angle));
+    }
+    drawLineBetweenPlayerAndMouse(context) {
+      context.save();
+      context.strokeStyle = "red";
+      context.lineWidth = 0.5;
+      context.beginPath();
+      context.moveTo(this.game.player.x, this.game.player.y);
+      context.lineTo(mouseX, mouseY);
+      context.stroke();
+      context.closePath();
+      context.restore();
     }
   }
 
@@ -155,7 +194,6 @@ window.addEventListener("load", function () {
   let lastTime = 0;
   function animate(timeStamp) {
     const deltaTime = timeStamp - lastTime;
-    //console.log(deltaTime);
     lastTime = timeStamp;
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     game.update(deltaTime);
