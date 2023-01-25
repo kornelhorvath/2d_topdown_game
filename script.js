@@ -8,6 +8,10 @@ window.addEventListener("load", function () {
   let topPos = canvas.getBoundingClientRect().top + window.scrollY;
   let leftPos = canvas.getBoundingClientRect().left + window.scrollX;
 
+  function radian(degree) {
+    return (degree * Math.PI) / 180;
+  }
+
   class InputHandler {
     constructor(game, context) {
       this.game = game;
@@ -30,6 +34,9 @@ window.addEventListener("load", function () {
       window.addEventListener("mousemove", (e) => {
         mouseX = e.clientX - leftPos;
         mouseY = e.clientY - topPos;
+      });
+      window.addEventListener("click", (e) => {
+        this.game.player.shoot();
       });
     }
   }
@@ -81,46 +88,37 @@ window.addEventListener("load", function () {
       this.y = canvas.height / 2;
       this.speedY = 0;
       this.speedX = 0;
-      this.speedIncrement = 0.25;
+      this.speed = 3;
       this.minSpeed = -5;
       this.maxSpeed = 5;
       this.projectiles = [];
+      this.angle = 0;
+      this.aimTriangle = 35;
+      this.aimTriangleSideways = 25;
     }
     update() {
-      //speedY
+      this.angle = Math.atan2(mouseY - this.y, mouseX - this.x);
+      //movement
       const wPressed = this.game.keys.includes("w");
       const sPressed = this.game.keys.includes("s");
       if (wPressed) {
-        this.speedY += -this.speedIncrement;
-      } else if (!sPressed && this.speedY < 0) {
-        this.speedY += this.speedIncrement;
+        this.x += this.speed * Math.cos(this.angle);
+        this.y += this.speed * Math.sin(this.angle);
       }
       if (sPressed) {
-        this.speedY += this.speedIncrement;
-      } else if (!wPressed && this.speedY > 0) {
-        this.speedY += -this.speedIncrement;
-        if (this.speedY < this.speedIncrement) this.speedY = 0;
+        this.x -= this.speed * Math.cos(this.angle);
+        this.y -= this.speed * Math.sin(this.angle);
       }
-      if (this.speedY > this.maxSpeed) this.speedY = this.maxSpeed;
-      if (this.speedY < this.minSpeed) this.speedY = this.minSpeed;
-      this.y += this.speedY;
-      //speedX
       const aPressed = this.game.keys.includes("a");
       const dPressed = this.game.keys.includes("d");
       if (aPressed) {
-        this.speedX += -this.speedIncrement;
-      } else if (!dPressed && this.speedX < 0) {
-        this.speedX += this.speedIncrement;
+        this.x += this.speed * Math.cos(this.angle + radian(-90));
+        this.y += this.speed * Math.sin(this.angle + radian(-90));
       }
       if (dPressed) {
-        this.speedX += this.speedIncrement;
-      } else if (!aPressed && this.speedX > 0) {
-        this.speedX += -this.speedIncrement;
-        if (this.speedX < this.speedIncrement) this.speedX = 0;
+        this.x += this.speed * Math.cos(this.angle + radian(90));
+        this.y += this.speed * Math.sin(this.angle + radian(90));
       }
-      if (this.speedX > this.maxSpeed) this.speedX = this.maxSpeed;
-      if (this.speedX < this.minSpeed) this.speedX = this.minSpeed;
-      this.x += this.speedX;
       //handle vertical boundries
       if (this.y > this.game.height - this.height * 0.5) {
         this.y = this.game.height - this.height * 0.5;
@@ -142,15 +140,34 @@ window.addEventListener("load", function () {
       );
     }
     draw(context) {
-      this.drawPlayerModel(context);
       this.projectiles.forEach((projectile) => {
         projectile.draw(context);
       });
-      this.drawLineBetweenPlayerAndMouse(context);
+      this.drawPlayerModel(context);
+      //this.drawLineBetweenPlayerAndMouse(context);
     }
     drawPlayerModel(context) {
       context.save();
+      //triangle tip pointing towards cursor
       context.fillStyle = "black";
+      context.beginPath();
+      context.moveTo(this.x, this.y);
+      context.lineTo(
+        this.x + this.aimTriangleSideways * Math.cos(this.angle + radian(90)),
+        this.y + this.aimTriangleSideways * Math.sin(this.angle + radian(90))
+      );
+      context.lineTo(
+        this.x + this.aimTriangle * Math.cos(this.angle),
+        this.y + this.aimTriangle * Math.sin(this.angle)
+      );
+      context.lineTo(
+        this.x + this.aimTriangleSideways * Math.cos(this.angle + radian(-90)),
+        this.y + this.aimTriangleSideways * Math.sin(this.angle + radian(-90))
+      );
+      context.fill();
+      context.closePath();
+      //circle
+      context.fillStyle = "grey";
       context.beginPath();
       context.arc(this.x, this.y, this.width, 0, 2 * Math.PI, false);
       context.closePath();
@@ -158,8 +175,9 @@ window.addEventListener("load", function () {
       context.restore();
     }
     shoot() {
-      const angle = Math.atan2(mouseY - this.y, mouseX - this.x);
-      this.projectiles.push(new Projectile(this.game, this.x, this.y, angle));
+      this.projectiles.push(
+        new Projectile(this.game, this.x, this.y, this.angle)
+      );
     }
     drawLineBetweenPlayerAndMouse(context) {
       context.save();
