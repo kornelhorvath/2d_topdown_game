@@ -25,6 +25,12 @@ window.addEventListener("load", function () {
         if (e.key === " ") {
           this.game.player.shoot();
         }
+        if (e.key === "m") {
+          this.game.movementType =
+            this.game.movementType === this.game.movementTypes.Absolute
+              ? this.game.movementTypes.Relative
+              : this.game.movementTypes.Absolute;
+        }
       });
       window.addEventListener("keyup", (e) => {
         if (this.game.keys.indexOf(e.key) > -1) {
@@ -99,25 +105,10 @@ window.addEventListener("load", function () {
     update() {
       this.angle = Math.atan2(mouseY - this.y, mouseX - this.x);
       //movement
-      const wPressed = this.game.keys.includes("w");
-      const sPressed = this.game.keys.includes("s");
-      if (wPressed) {
-        this.x += this.speed * Math.cos(this.angle);
-        this.y += this.speed * Math.sin(this.angle);
-      }
-      if (sPressed) {
-        this.x -= this.speed * Math.cos(this.angle);
-        this.y -= this.speed * Math.sin(this.angle);
-      }
-      const aPressed = this.game.keys.includes("a");
-      const dPressed = this.game.keys.includes("d");
-      if (aPressed) {
-        this.x += this.speed * Math.cos(this.angle + radian(-90));
-        this.y += this.speed * Math.sin(this.angle + radian(-90));
-      }
-      if (dPressed) {
-        this.x += this.speed * Math.cos(this.angle + radian(90));
-        this.y += this.speed * Math.sin(this.angle + radian(90));
+      if (this.game.movementType === this.game.movementTypes.Relative) {
+        this.moveRelative();
+      } else if (this.game.movementType === this.game.movementTypes.Absolute) {
+        this.moveAbsolute();
       }
       //handle vertical boundries
       if (this.y > this.game.height - this.height * 0.5) {
@@ -190,15 +181,78 @@ window.addEventListener("load", function () {
       context.closePath();
       context.restore();
     }
+    moveAbsolute() {
+      const speedIncrement = 0.25;
+      const wPressed = this.game.keys.includes("w");
+      const sPressed = this.game.keys.includes("s");
+      if (wPressed) {
+        this.speedY += -speedIncrement;
+      } else if (!sPressed && this.speedY < 0) {
+        this.speedY += speedIncrement;
+      }
+      if (sPressed) {
+        this.speedY += speedIncrement;
+      } else if (!wPressed && this.speedY > 0) {
+        this.speedY += -speedIncrement;
+        if (this.speedY < speedIncrement) this.speedY = 0;
+      }
+      if (this.speedY > this.maxSpeed) this.speedY = this.maxSpeed;
+      if (this.speedY < this.minSpeed) this.speedY = this.minSpeed;
+      this.y += this.speedY;
+      //speedX
+      const aPressed = this.game.keys.includes("a");
+      const dPressed = this.game.keys.includes("d");
+      if (aPressed) {
+        this.speedX += -speedIncrement;
+      } else if (!dPressed && this.speedX < 0) {
+        this.speedX += speedIncrement;
+      }
+      if (dPressed) {
+        this.speedX += speedIncrement;
+      } else if (!aPressed && this.speedX > 0) {
+        this.speedX += -speedIncrement;
+        if (this.speedX < speedIncrement) this.speedX = 0;
+      }
+      if (this.speedX > this.maxSpeed) this.speedX = this.maxSpeed;
+      if (this.speedX < this.minSpeed) this.speedX = this.minSpeed;
+      this.x += this.speedX;
+    }
+    moveRelative() {
+      const wPressed = this.game.keys.includes("w");
+      const sPressed = this.game.keys.includes("s");
+      if (wPressed) {
+        this.x += this.speed * Math.cos(this.angle);
+        this.y += this.speed * Math.sin(this.angle);
+      }
+      if (sPressed) {
+        this.x -= this.speed * Math.cos(this.angle);
+        this.y -= this.speed * Math.sin(this.angle);
+      }
+      const aPressed = this.game.keys.includes("a");
+      const dPressed = this.game.keys.includes("d");
+      if (aPressed) {
+        this.x += this.speed * Math.cos(this.angle + radian(-90));
+        this.y += this.speed * Math.sin(this.angle + radian(-90));
+      }
+      if (dPressed) {
+        this.x += this.speed * Math.cos(this.angle + radian(90));
+        this.y += this.speed * Math.sin(this.angle + radian(90));
+      }
+    }
   }
 
   class Game {
     constructor(width, height) {
       this.width = width;
       this.height = height;
+      this.movementTypes = {
+        Relative: "relative",
+        Absolute: "absolute",
+      };
+      this.movementType = this.movementTypes.Relative;
+      this.keys = [];
       this.player = new Player(this);
       this.input = new InputHandler(this);
-      this.keys = [];
     }
     update(deltaTime) {
       this.player.update();
