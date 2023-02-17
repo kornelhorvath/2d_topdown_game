@@ -50,11 +50,11 @@ window.addEventListener("load", function () {
   class Projectile {
     constructor(game, x, y, angle) {
       this.game = game;
-      this.width = 20;
-      this.height = 10;
-      this.x = x - this.width / 2;
-      this.y = y - this.height / 2;
-      this.speed = 3;
+      this.width = 4;
+      this.height = this.width;
+      this.x = x;
+      this.y = y;
+      this.speed = 6;
       this.angle = angle;
       this.markedForDeletion = false;
     }
@@ -72,15 +72,11 @@ window.addEventListener("load", function () {
     }
     draw(context) {
       context.save();
-      context.fillStyle = "#006600";
-      context.translate(this.x + this.width / 2, this.y + this.height / 2);
-      context.rotate(this.angle);
-      context.fillRect(
-        -this.width / 2,
-        -this.height / 2,
-        this.width,
-        this.height
-      );
+      context.fillStyle = "black";
+      context.beginPath();
+      context.arc(this.x, this.y, this.width, 0, 2 * Math.PI, false);
+      context.closePath();
+      context.fill();
       context.restore();
     }
   }
@@ -94,7 +90,7 @@ window.addEventListener("load", function () {
       this.y = canvas.height / 2;
       this.speedY = 0;
       this.speedX = 0;
-      this.speed = 3;
+      this.speed = 5;
       this.minSpeed = -5;
       this.maxSpeed = 5;
       this.projectiles = [];
@@ -135,7 +131,6 @@ window.addEventListener("load", function () {
         projectile.draw(context);
       });
       this.drawPlayerModel(context);
-      //this.drawLineBetweenPlayerAndMouse(context);
     }
     drawPlayerModel(context) {
       context.save();
@@ -170,13 +165,13 @@ window.addEventListener("load", function () {
         new Projectile(this.game, this.x, this.y, this.angle)
       );
     }
-    drawLineBetweenPlayerAndMouse(context) {
+    drawLineBetween(context, x1, y1, x2, y2) {
       context.save();
       context.strokeStyle = "red";
       context.lineWidth = 0.5;
       context.beginPath();
-      context.moveTo(this.game.player.x, this.game.player.y);
-      context.lineTo(mouseX, mouseY);
+      context.moveTo(x1, y1);
+      context.lineTo(x2, y2);
       context.stroke();
       context.closePath();
       context.restore();
@@ -241,6 +236,40 @@ window.addEventListener("load", function () {
     }
   }
 
+  class Enemy {
+    constructor(game, spawnX, spawnY, speed, lives) {
+      this.game = game;
+      this.x = spawnX;
+      this.y = spawnY;
+      this.speed = speed;
+      this.width = 40;
+      this.height = 40;
+      this.lives = lives;
+      this.markedForDeletion = false;
+    }
+    update(context) {
+      const angle = Math.atan2(
+        this.game.player.y - this.y,
+        this.game.player.x - this.x
+      );
+      this.game.player.drawLineBetween(
+        context,
+        this.x + this.width / 2,
+        this.y + this.height / 2,
+        this.game.player.x,
+        this.game.player.y
+      );
+    }
+    draw(context) {
+      context.save();
+      context.fillStyle = "yellow";
+      context.fillRect(this.x, this.y, this.width, this.height);
+      context.fillStyle = "black";
+      context.fillText(this.lives, this.x, this.y);
+      context.restore();
+    }
+  }
+
   class Game {
     constructor(width, height) {
       this.width = width;
@@ -253,12 +282,43 @@ window.addEventListener("load", function () {
       this.keys = [];
       this.player = new Player(this);
       this.input = new InputHandler(this);
+      this.enemies = [
+        new Enemy(this, 100, 100, 5, 3),
+        new Enemy(this, 500, 500, 5, 3),
+      ];
     }
-    update(deltaTime) {
+    update(context, deltaTime) {
       this.player.update();
+      this.enemies.forEach((enemy) => {
+        enemy.update(context);
+        if (this.rectCollision(this.player, enemy)) {
+          enemy.markedForDeletion = true;
+        }
+        this.player.projectiles.forEach((projectile) => {
+          if (this.rectCollision(projectile, enemy)) {
+            enemy.lives--;
+            projectile.markedForDeletion = true;
+            if (enemy.lives <= 0) {
+              enemy.markedForDeletion = true;
+            }
+          }
+        });
+      });
+      this.enemies = this.enemies.filter((enemy) => !enemy.markedForDeletion);
     }
     draw(context) {
       this.player.draw(context);
+      this.enemies.forEach((enemy) => {
+        enemy.draw(context);
+      });
+    }
+    rectCollision(r1, r2) {
+      return (
+        r1.x < r2.x + r2.width &&
+        r1.x + r1.width > r2.x &&
+        r1.y < r2.y + r2.height &&
+        r1.height + r1.y > r2.y
+      );
     }
   }
 
@@ -268,7 +328,7 @@ window.addEventListener("load", function () {
     const deltaTime = timeStamp - lastTime;
     lastTime = timeStamp;
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    game.update(deltaTime);
+    game.update(ctx, deltaTime);
     game.draw(ctx);
     requestAnimationFrame(animate);
   }
