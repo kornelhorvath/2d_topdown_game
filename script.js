@@ -97,6 +97,7 @@ window.addEventListener("load", function () {
       this.angle = 0;
       this.aimTriangle = 35;
       this.aimTriangleSideways = 25;
+      this.lives = 3;
     }
     update() {
       this.angle = Math.atan2(mouseY - this.y, mouseX - this.x);
@@ -252,13 +253,15 @@ window.addEventListener("load", function () {
         this.game.player.y - this.y,
         this.game.player.x - this.x
       );
-      this.game.player.drawLineBetween(
+      this.x += this.speed * Math.cos(angle);
+      this.y += this.speed * Math.sin(angle);
+      /*this.game.player.drawLineBetween(
         context,
         this.x + this.width / 2,
         this.y + this.height / 2,
         this.game.player.x,
         this.game.player.y
-      );
+      );*/
     }
     draw(context) {
       context.save();
@@ -266,6 +269,35 @@ window.addEventListener("load", function () {
       context.fillRect(this.x, this.y, this.width, this.height);
       context.fillStyle = "black";
       context.fillText(this.lives, this.x, this.y);
+      context.restore();
+    }
+  }
+
+  class UI {
+    constructor(game) {
+      this.game = game;
+      this.fontSize = 25;
+      this.fontFamily = "Helvetica";
+      this.color = "black";
+    }
+    draw(context) {
+      context.save();
+      context.fillStyle = this.color;
+      context.shadowOffsetX = 1;
+      context.shadowOffsetY = 1;
+      context.shadowColor = "white";
+      context.font = `${this.fontSize}px ${this.fontFamily}`;
+      //player health
+      context.fillText(`Health: ${this.game.player.lives}`, 20, 40);
+      //gameover text
+      if (this.game.gameover) {
+        context.textAlign = "center";
+        context.fillText(
+          `Game over!`,
+          this.game.width * 0.5,
+          this.game.height * 0.5
+        );
+      }
       context.restore();
     }
   }
@@ -282,10 +314,14 @@ window.addEventListener("load", function () {
       this.keys = [];
       this.player = new Player(this);
       this.input = new InputHandler(this);
+      this.ui = new UI(this);
       this.enemies = [
-        new Enemy(this, 100, 100, 5, 3),
-        new Enemy(this, 500, 500, 5, 3),
+        new Enemy(this, 100, 100, 2, 3),
+        new Enemy(this, 500, 500, 2, 3),
+        new Enemy(this, 100, 500, 2, 3),
+        new Enemy(this, 1000, 500, 2, 3),
       ];
+      this.gameover = false;
     }
     update(context, deltaTime) {
       this.player.update();
@@ -293,6 +329,10 @@ window.addEventListener("load", function () {
         enemy.update(context);
         if (this.rectCollision(this.player, enemy)) {
           enemy.markedForDeletion = true;
+          this.player.lives--;
+          if (this.player.lives <= 0) {
+            this.gameover = true;
+          }
         }
         this.player.projectiles.forEach((projectile) => {
           if (this.rectCollision(projectile, enemy)) {
@@ -311,6 +351,7 @@ window.addEventListener("load", function () {
       this.enemies.forEach((enemy) => {
         enemy.draw(context);
       });
+      this.ui.draw(context);
     }
     rectCollision(r1, r2) {
       return (
@@ -330,6 +371,9 @@ window.addEventListener("load", function () {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     game.update(ctx, deltaTime);
     game.draw(ctx);
+    if (game.gameover) {
+      return;
+    }
     requestAnimationFrame(animate);
   }
   animate(0);
