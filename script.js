@@ -1,15 +1,19 @@
 window.addEventListener("load", function () {
   const canvas = document.querySelector("#canvas1");
   const ctx = canvas.getContext("2d");
-  canvas.width = window.innerWidth * 0.75;
-  canvas.height = window.innerHeight * 0.75;
-  let mouseX = 0;
-  let mouseY = 0;
+  canvas.width = window.innerWidth * 0.95;
+  canvas.height = window.innerHeight * 0.95;
   let topPos = canvas.getBoundingClientRect().top + window.scrollY;
   let leftPos = canvas.getBoundingClientRect().left + window.scrollX;
+  let mouseX = leftPos;
+  let mouseY = topPos;
 
   function radian(degree) {
     return (degree * Math.PI) / 180;
+  }
+
+  function getRandomInteger(min, max) {
+    return Math.floor(Math.random() * (max - min + 1)) + min;
   }
 
   class InputHandler {
@@ -98,6 +102,7 @@ window.addEventListener("load", function () {
       this.aimTriangle = 35;
       this.aimTriangleSideways = 25;
       this.lives = 3;
+      this.score = 0;
     }
     update() {
       this.angle = Math.atan2(mouseY - this.y, mouseX - this.x);
@@ -255,13 +260,6 @@ window.addEventListener("load", function () {
       );
       this.x += this.speed * Math.cos(angle);
       this.y += this.speed * Math.sin(angle);
-      /*this.game.player.drawLineBetween(
-        context,
-        this.x + this.width / 2,
-        this.y + this.height / 2,
-        this.game.player.x,
-        this.game.player.y
-      );*/
     }
     draw(context) {
       context.save();
@@ -289,6 +287,8 @@ window.addEventListener("load", function () {
       context.font = `${this.fontSize}px ${this.fontFamily}`;
       //player health
       context.fillText(`Health: ${this.game.player.lives}`, 20, 40);
+      //player score
+      context.fillText(`Score: ${this.game.player.score}`, 20, 70);
       //gameover text
       if (this.game.gameover) {
         context.textAlign = "center";
@@ -310,20 +310,24 @@ window.addEventListener("load", function () {
         Relative: "relative",
         Absolute: "absolute",
       };
-      this.movementType = this.movementTypes.Relative;
+      this.movementType = this.movementTypes.Absolute;
       this.keys = [];
       this.player = new Player(this);
       this.input = new InputHandler(this);
       this.ui = new UI(this);
-      this.enemies = [
-        new Enemy(this, 100, 100, 2, 3),
-        new Enemy(this, 500, 500, 2, 3),
-        new Enemy(this, 100, 500, 2, 3),
-        new Enemy(this, 1000, 500, 2, 3),
-      ];
+      this.enemies = [];
+      this.enemyInterval = 500;
+      this.enemyTimer = 0;
       this.gameover = false;
     }
     update(context, deltaTime) {
+      if (this.enemyTimer > this.enemyInterval) {
+        const spawnCoords = this.getSpawnCoords();
+        this.enemies.push(new Enemy(this, spawnCoords.x, spawnCoords.y, 2, 1));
+        this.enemyTimer = 0;
+      } else {
+        this.enemyTimer += deltaTime;
+      }
       this.player.update();
       this.enemies.forEach((enemy) => {
         enemy.update(context);
@@ -340,6 +344,7 @@ window.addEventListener("load", function () {
             projectile.markedForDeletion = true;
             if (enemy.lives <= 0) {
               enemy.markedForDeletion = true;
+              this.player.score += 1;
             }
           }
         });
@@ -360,6 +365,19 @@ window.addEventListener("load", function () {
         r1.y < r2.y + r2.height &&
         r1.height + r1.y > r2.y
       );
+    }
+    getSpawnCoords() {
+      // 1: left, 2: top, 3: right, 4: bottom
+      const side = getRandomInteger(1, 4);
+      if (side == 1) {
+        return { x: 0, y: getRandomInteger(0, canvas.height) };
+      } else if (side == 2) {
+        return { x: getRandomInteger(0, canvas.width), y: 0 };
+      } else if (side == 3) {
+        return { x: canvas.width, y: getRandomInteger(0, canvas.height) };
+      } else if (side == 4) {
+        return { x: getRandomInteger(0, canvas.width), y: canvas.height };
+      }
     }
   }
 
