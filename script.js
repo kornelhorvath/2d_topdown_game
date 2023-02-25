@@ -8,6 +8,9 @@ window.addEventListener("load", function () {
   let mouseX = leftPos;
   let mouseY = topPos;
 
+  const colors = ["green", "yellow", "orange", "red"];
+  const pairs = { 3: 1, 2: 2, 1: 3 };
+
   function radian(degree) {
     return (degree * Math.PI) / 180;
   }
@@ -36,6 +39,9 @@ window.addEventListener("load", function () {
               : this.game.movementTypes.Absolute;
         }
       });
+      window.addEventListener("click", (e) => {
+        this.game.player.shoot();
+      });
       window.addEventListener("keyup", (e) => {
         if (this.game.keys.indexOf(e.key) > -1) {
           this.game.keys.splice(this.game.keys.indexOf(e.key), 1);
@@ -44,9 +50,6 @@ window.addEventListener("load", function () {
       window.addEventListener("mousemove", (e) => {
         mouseX = e.clientX - leftPos;
         mouseY = e.clientY - topPos;
-      });
-      window.addEventListener("click", (e) => {
-        this.game.player.shoot();
       });
     }
   }
@@ -103,8 +106,12 @@ window.addEventListener("load", function () {
       this.aimTriangleSideways = 25;
       this.lives = 3;
       this.score = 0;
+      this.ammo = 10;
+      this.maxAmmo = 20;
+      this.ammoInterval = 500;
+      this.ammoTimer = 0;
     }
-    update() {
+    update(deltaTime) {
       this.angle = Math.atan2(mouseY - this.y, mouseX - this.x);
       //movement
       if (this.game.movementType === this.game.movementTypes.Relative) {
@@ -131,6 +138,13 @@ window.addEventListener("load", function () {
       this.projectiles = this.projectiles.filter(
         (projectile) => !projectile.markedForDeletion
       );
+      //refill ammo
+      if (this.ammoTimer > this.ammoInterval) {
+        if (this.ammo < this.maxAmmo) this.addAmmo(1);
+        this.ammoTimer = 0;
+      } else {
+        this.ammoTimer += deltaTime;
+      }
     }
     draw(context) {
       this.projectiles.forEach((projectile) => {
@@ -167,9 +181,16 @@ window.addEventListener("load", function () {
       context.restore();
     }
     shoot() {
-      this.projectiles.push(
-        new Projectile(this.game, this.x, this.y, this.angle)
-      );
+      if (this.ammo >= 1) {
+        this.projectiles.push(
+          new Projectile(this.game, this.x, this.y, this.angle)
+        );
+        this.ammo--;
+      }
+    }
+    addAmmo(x) {
+      if (this.ammo + x >= this.maxAmmo) this.ammo = this.maxAmmo;
+      else this.ammo += x;
     }
     drawLineBetween(context, x1, y1, x2, y2) {
       context.save();
@@ -251,6 +272,7 @@ window.addEventListener("load", function () {
       this.width = 40;
       this.height = 40;
       this.lives = lives;
+      this.score = this.lives;
       this.markedForDeletion = false;
     }
     update(context) {
@@ -263,7 +285,7 @@ window.addEventListener("load", function () {
     }
     draw(context) {
       context.save();
-      context.fillStyle = "yellow";
+      context.fillStyle = colors[this.lives];
       context.fillRect(this.x, this.y, this.width, this.height);
       context.fillStyle = "black";
       context.fillText(this.lives, this.x, this.y);
@@ -289,6 +311,10 @@ window.addEventListener("load", function () {
       context.fillText(`Health: ${this.game.player.lives}`, 20, 40);
       //player score
       context.fillText(`Score: ${this.game.player.score}`, 20, 70);
+      //player ammo
+      for (let i = 0; i < this.game.player.ammo; i++) {
+        context.fillRect(i * 5 + 30, 100, 3, 20);
+      }
       //gameover text
       if (this.game.gameover) {
         context.textAlign = "center";
@@ -316,24 +342,27 @@ window.addEventListener("load", function () {
       this.input = new InputHandler(this);
       this.ui = new UI(this);
       this.enemies = [];
-      this.enemyInterval = 500;
+      this.enemyInterval = 1000;
       this.enemyTimer = 0;
       this.gameover = false;
     }
     update(context, deltaTime) {
       if (this.enemyTimer > this.enemyInterval) {
         const spawnCoords = this.getSpawnCoords();
-        this.enemies.push(new Enemy(this, spawnCoords.x, spawnCoords.y, 2, 1));
+        const health = getRandomInteger(1, 3);
+        this.enemies.push(
+          new Enemy(this, spawnCoords.x, spawnCoords.y, pairs[health], health)
+        );
         this.enemyTimer = 0;
       } else {
         this.enemyTimer += deltaTime;
       }
-      this.player.update();
+      this.player.update(deltaTime);
       this.enemies.forEach((enemy) => {
         enemy.update(context);
         if (this.rectCollision(this.player, enemy)) {
           enemy.markedForDeletion = true;
-          this.player.lives--;
+          this.player.lives -= enemy.score;
           if (this.player.lives <= 0) {
             this.gameover = true;
           }
@@ -344,7 +373,8 @@ window.addEventListener("load", function () {
             projectile.markedForDeletion = true;
             if (enemy.lives <= 0) {
               enemy.markedForDeletion = true;
-              this.player.score += 1;
+              this.player.score += enemy.score;
+              this.player.addAmmo(enemy.score);
             }
           }
         });
