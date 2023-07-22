@@ -1,3 +1,1 @@
-# 2d_topdown_game
-
-## This is my first 2d game, created with plain JavaScript
+# my first 2d game, created with plain JavaScript and HTML canvas
